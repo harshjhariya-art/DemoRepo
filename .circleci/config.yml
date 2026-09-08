@@ -1,0 +1,80 @@
+version: 2.1
+
+jobs:
+  trigger-testrigor-suite:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run:
+          name: "Trigger and Wait for testRigor Suite"
+          command: |
+            #!/bin/bash
+            
+            curl -X POST \
+              -H 'Content-type: application/json' \
+              -H "auth-token: ${TESTRIGOR_AUTH_TOKEN}" \
+              --data '{"forceCancelPreviousTesting":true,"storedValues":{"storedValueName1":"Value"}}' \
+              "https://api.testrigor.com/api/v1/apps/${TESTRIGOR_APP_ID}/retest"
+            
+            sleep 10
+            
+            while true
+            do
+              echo " "
+              echo "==================================="
+              echo " Checking run status"
+              echo "==================================="
+              response=$(curl -i -o - -s -X GET "https://api.testrigor.com/api/v1/apps/${TESTRIGOR_APP_ID}/status" -H "auth-token: ${TESTRIGOR_AUTH_TOKEN}" -H 'Accept: application/json')
+              code=$(echo "$response" | grep HTTP | awk '{print $2}')
+              body=$(echo "$response" | sed -n '/{/,/}/p')
+              
+              echo "Status code: " $code
+              echo "Response: " $body
+              
+              case $code in
+                4*|5*)
+                  # 400 or 500 errors
+                  echo "Error calling API"
+                  exit 1
+                  ;;
+                200)
+                  # 200: successfully finished
+                  echo "Test finished successfully"
+                  exit 0
+                  ;;
+                227|228)
+                  # 227: New - 228: In progress
+                  echo "Test is not finished yet"
+                  ;;
+                229)
+                  # 229: Canceled
+                  echo "Test canceled"
+                  exit 1
+                  ;;
+                230)
+                  # 230: Failed
+                  echo "Test finished but failed"
+                  exit 1
+                  ;;
+                *)
+                  echo "Unknown status"
+                  exit 1
+                esac
+              sleep 10
+            done
+
+workflows:
+  test-on-commit:
+    jobs:
+      - trigger-testrigor-suite
+
+  weekly-testrigor-run:
+    triggers:
+      - schedule:
+          cron: "30 5 * * 2" # 5:30 AM UTC = 11:00 AM IST on Tuesdays
+          filters:
+            branches:
+              only:
+                - main
+    jobs:
+      - trigger-testrigor-suite
