@@ -2,7 +2,7 @@ name: Weekly testRigor Suite Run
 
 on:
   schedule:
-    - cron: "45 8 * * 2" # 8:45 AM UTC = 2:15 PM IST on Tuesdays
+    - cron: "15 8 * * 2" # 8:45 AM UTC = 2:15 PM IST on Tuesdays
   workflow_dispatch: # Allows you to manually trigger the workflow from the Actions tab
 
 jobs:
