@@ -64,6 +64,10 @@ jobs:
             done
 
 workflows:
+  test-on-commit:
+    jobs:
+      - trigger-testrigor-suite
+
   weekly-testrigor-run:
     triggers:
       - schedule:
